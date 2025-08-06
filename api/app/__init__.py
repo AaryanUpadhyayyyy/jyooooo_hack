@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
-# Changed to a relative import to correctly reference rag_routes within the 'app' package
+# Corrected the import to be relative
 from .routes.rag_routes import rag_routes
 
 def create_app():
