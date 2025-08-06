@@ -7,8 +7,9 @@ services:
     # Added PYTHONPATH to ensure 'app' module is found
     startCommand: PYTHONPATH=$PYTHONPATH:/opt/render/project/src gunicorn run:app
     envVars:
+      # Updated Python version to 3.13.0 to match the runtime environment
       - key: PYTHON_VERSION
-        value: 3.11.0 # Ensure this matches your local Python version if different
+        value: 3.13.0
       - key: CHROMA_DB_PATH
         value: /opt/render/project/src/chroma_db
       - key: FLASK_ENV
