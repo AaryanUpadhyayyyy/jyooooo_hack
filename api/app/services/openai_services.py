@@ -27,10 +27,11 @@ import chromadb
 from chromadb.config import Settings
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG) # Changed to DEBUG for more verbose output
 logger = logging.getLogger(__name__)
 
 class SmartCache:
+    # (SmartCache code remains the same)
     """Advanced cache with TTL, size limits and LRU eviction policy."""
     def __init__(self, max_size=1000, ttl=3600):  # Default: 1000 items, 1 hour TTL
         self.cache = {}
@@ -124,10 +125,14 @@ def initialize_openai_clients():
     """Initialize Azure OpenAI clients if credentials are available."""
     global async_client, sync_client
     
+    print("--- DEBUG: Starting initialize_openai_clients() ---")
     api_key = os.environ.get("AZURE_OPENAI_API_KEY")
     endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
     api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2023-06-01-preview")
     
+    print(f"--- DEBUG: API Key found? {'Yes' if api_key else 'No'}")
+    print(f"--- DEBUG: Endpoint found? {'Yes' if endpoint else 'No'}")
+
     if api_key and endpoint:
         try:
             async_client = AsyncAzureOpenAI(
@@ -144,19 +149,25 @@ def initialize_openai_clients():
                 timeout=20.0
             )
             logger.info("Azure OpenAI clients initialized successfully")
+            print("--- DEBUG: Azure OpenAI clients initialization attempt succeeded. ---")
         except Exception as e:
             logger.warning(f"Failed to initialize Azure OpenAI clients: {e}")
+            print(f"--- DEBUG: Azure OpenAI clients initialization failed with error: {e} ---")
             async_client = None
             sync_client = None
     else:
         logger.warning("Azure OpenAI credentials not found. Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT environment variables.")
+        print("--- DEBUG: Azure OpenAI credentials were not found in environment variables. ---")
+    
+    print("--- DEBUG: Finished initialize_openai_clients() ---")
 
 # Initialize clients on module import
 initialize_openai_clients()
 
-# Optimized embedding function with improved caching
+# (Rest of the file remains the same)
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=6))
 async def get_embeddings(texts: List[str]):
+    # ... (code remains the same) ...
     """Get embeddings for a list of texts using Azure OpenAI with improved caching."""
     if not async_client:
         raise Exception("Azure OpenAI client not initialized. Please set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT environment variables.")
@@ -230,6 +241,7 @@ async def get_embeddings(texts: List[str]):
         raise
 
 async def process_and_store_document(file, collection_name, chroma_client):
+    # ... (code remains the same) ...
     """Process a file and append to existing/new collection"""
     try:
         # Get or create collection
@@ -280,6 +292,7 @@ async def process_and_store_document(file, collection_name, chroma_client):
 # Add caching to query function
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
 async def query_vector_db(query, collection_name, top_k=5, chroma_client=None):
+    # ... (code remains the same) ...
     """Query the vector database for similar documents with caching."""
     try:
         # Create a cache key from the query and collection
@@ -310,6 +323,7 @@ async def query_vector_db(query, collection_name, top_k=5, chroma_client=None):
         raise
 
 def clean_markdown_formatting(text):
+    # ... (code remains the same) ...
     """Clean up markdown formatting from AI responses."""
     if not text:
         return text
@@ -333,6 +347,7 @@ def clean_markdown_formatting(text):
     return text
 
 def construct_rag_prompt(query, relevant_docs, org_info=None, tone=None):
+    # ... (code remains the same) ...
     """Construct a RAG prompt with context and guidelines."""
     # Default values
     org_name = os.environ.get("ORG_NAME", "Your Organization") if org_info is None else org_info.get("name", os.environ.get("ORG_NAME", "Your Organization"))
@@ -370,6 +385,7 @@ Here is the context information to help answer the user's question:
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=6))
 async def generate_answer(query, relevant_docs, conversation_history, org_info=None, tone=None):
+    # ... (code remains the same) ...
     """Generate an answer using Azure OpenAI with caching."""
     if not async_client:
         raise Exception("Azure OpenAI client not initialized. Please set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT environment variables.")
@@ -452,4 +468,4 @@ async def generate_answer(query, relevant_docs, conversation_history, org_info=N
     
     except Exception as e:
         logger.error(f"Error generating answer: {str(e)}")
-        raise 
+        raise
