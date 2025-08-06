@@ -36,14 +36,16 @@ import openai
 from openai import AsyncAzureOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-# Changed to relative imports for services
-from ..services.openai_services import ( # Corrected import path
+# --- IMPORTANT: These lines are crucial for import resolution ---
+# Using absolute imports from the project's 'api' root, assuming PYTHONPATH is set.
+from api.app.services.openai_services import (
     get_embeddings, process_and_store_document,
     query_vector_db, generate_answer, SmartCache
 )
-from ..services.utils import ( # Corrected import path
+from api.app.services.utils import (
     clean_text, extract_text_from_file, chunk_text
 )
+# --- End of important changes ---
 
 
 # Configure logging
@@ -100,7 +102,7 @@ def get_cached_result(cache_key: str) -> Optional[Dict]:
             logger.info(f"Cache hit for key: {cache_key}")
             return cached_data['result']
         else:
-            # Remove expired cache entry
+            # Item expired, remove it
             del hackrx_cache[cache_key]
             logger.info(f"Cache expired for key: {cache_key}")
     return None
@@ -377,6 +379,20 @@ def list_collections():
         logger.error(f"Error listing collections: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# --- New Endpoint for Hackathon ---
+@rag_routes.route('/hackrx/new_feature', methods=['GET'])
+def new_feature_endpoint():
+    """
+    A new placeholder endpoint for HackRX.
+    This can be customized to perform specific tasks for the hackathon.
+    """
+    return jsonify({
+        "status": "success",
+        "message": "Welcome to the new HackRX feature endpoint!",
+        "timestamp": datetime.now().isoformat(),
+        "details": "Customize this endpoint for your hackathon needs."
+    })
+# --- End of New Endpoint ---
 
 
 # HackRX specific endpoint
