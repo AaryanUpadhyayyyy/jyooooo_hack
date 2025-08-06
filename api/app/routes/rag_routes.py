@@ -36,12 +36,12 @@ import openai
 from openai import AsyncAzureOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-# Import services
-from app.services.openai_services import (
-    get_embeddings, process_and_store_document, 
+# Changed to relative imports for services
+from ..services.openai_services import ( # Corrected import path
+    get_embeddings, process_and_store_document,
     query_vector_db, generate_answer, SmartCache
 )
-from app.services.utils import (
+from ..services.utils import ( # Corrected import path
     clean_text, extract_text_from_file, chunk_text
 )
 
@@ -112,7 +112,7 @@ def cache_result(cache_key: str, result: Dict):
         'timestamp': time.time()
     }
     logger.info(f"Cached result for key: {cache_key}")
-    
+
     # Clean up old cache entries (optional - prevents memory leaks)
     current_time = time.time()
     expired_keys = [
@@ -138,20 +138,20 @@ def upload_files():
     """Handle multi-file upload to a specified collection"""
     if 'files' not in request.files:
         return jsonify({"error": "No files provided"}), 400
-    
+
     collection_name = request.form.get("collection_name", "default_collection")
     results = []
-    
+
     for file in request.files.getlist('files'):
         if file.filename == '':
             continue
-            
+
         result = run_async(process_and_store_document(file, collection_name, chroma_client))
         results.append({
             "filename": file.filename,
             **result
         })
-    
+
     return jsonify({
         "collection": collection_name,
         "results": results
@@ -163,27 +163,27 @@ def delete_file(collection_name, file_id):
     """Delete a file with protection against empty collection"""
     try:
         collection = chroma_client.get_collection(collection_name)
-        
+
         # First check if this is the last file
         all_files = collection.get(include=["metadatas"])
         unique_file_ids = {meta['file_id'] for meta in all_files['metadatas']}
-        
+
         if len(unique_file_ids) == 1 and file_id in unique_file_ids:
             return jsonify({
                 "error": "Cannot delete the last file in collection",
                 "suggestion": "Delete the entire collection instead"
             }), 400
-        
+
         # Proceed with deletion if not the last file
         results = collection.get(where={"file_id": file_id})
         if not results['ids']:
             return jsonify({"error": "File not found"}), 404
-            
+
         collection.delete(ids=results['ids'])
         return jsonify({
             "deleted": len(results['ids']),
             "remaining_files": len(unique_file_ids) - 1
-        })      
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -193,10 +193,10 @@ def list_files(collection_name):
     """Get all unique files in a collection with metadata"""
     try:
         collection = chroma_client.get_collection(collection_name)
-        
+
         # Get all metadata (paginated if collection is large)
         results = collection.get(include=["metadatas"])
-        
+
         # Aggregate by file_id
         files = {}
         for meta in results['metadatas']:
@@ -209,13 +209,13 @@ def list_files(collection_name):
                 }
             else:
                 files[file_id]['chunk_count'] += 1
-        
+
         return jsonify({
             "collection": collection_name,
             "total_files": len(files),
             "files": list(files.values())  # Convert dict to list
         })
-        
+
     except Exception as e:
         return jsonify({"error": str(e)}), 404 if "not found" in str(e).lower() else 500
 
@@ -237,35 +237,35 @@ def query():
     """Query the vector database API endpoint."""
     try:
         data = request.get_json()
-        
+
         # Validate input
         if not data or 'query' not in data or 'collection_name' not in data:
             return jsonify({"status": "error", "message": "Missing required parameters"}), 400
-        
+
         query_text = data['query']
         collection_name = data['collection_name']
         top_k = data.get('top_k', 5)
-        
+
         # Query the vector database
         results = run_async(query_vector_db(query_text, collection_name, top_k, chroma_client))
-        
+
         # Format the response
         formatted_results = {
             "matches": []
         }
-        
+
         for i in range(len(results['documents'][0])):
             formatted_results["matches"].append({
                 "document": results['documents'][0][i],
                 "metadata": results['metadatas'][0][i],
                 "score": 1 - results['distances'][0][i]  # Convert distance to similarity score
             })
-        
+
         return jsonify({
             "status": "success",
             "results": formatted_results
         })
-    
+
     except Exception as e:
         logger.error(f"Error in query endpoint: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -276,51 +276,51 @@ def generate():
     try:
         start_time = datetime.now()
         data = request.get_json()
-        
+
         # Validate input
         if not data or 'query' not in data or 'collection_name' not in data:
             return jsonify({"status": "error", "message": "Missing required parameters"}), 400
-        
+
         query_text = data['query']
         collection_name = data['collection_name']
         conversation_id = data.get('conversation_id', str(uuid.uuid4()))
-        
+
         # Optional parameters
         org_info = data.get('org_info', None)
         tone = data.get('tone', None)
         top_k = data.get('top_k', 5)
-        
+
         # Performance info
         include_performance_info = data.get('include_performance_info', False)
         performance_info = {}
-        
+
         # Get or initialize conversation history
         if conversation_id not in conversation_history:
             conversation_history[conversation_id] = []
-        
+
         # If history is provided in the request, use it instead
         if 'history' in data and isinstance(data['history'], list):
             current_history = data['history']
         else:
             current_history = conversation_history[conversation_id]
-        
+
         # Set a timeout for the entire operation
         try:
             # Query the vector database with timeout
             vector_start = datetime.now()
             relevant_docs = run_async(asyncio.wait_for(
-                query_vector_db(query_text, collection_name, top_k, chroma_client), 
+                query_vector_db(query_text, collection_name, top_k, chroma_client),
                 timeout=15.0
             ))
             vector_time = (datetime.now() - vector_start).total_seconds()
             performance_info['vector_search_time'] = vector_time
-            
+
             # Generate answer with timeout
             answer_start = datetime.now()
             answer = run_async(asyncio.wait_for(
                 generate_answer(
-                    query_text, 
-                    relevant_docs, 
+                    query_text,
+                    relevant_docs,
                     current_history,
                     org_info,
                     tone
@@ -329,34 +329,34 @@ def generate():
             ))
             answer_time = (datetime.now() - answer_start).total_seconds()
             performance_info['answer_generation_time'] = answer_time
-            
+
             # Store updated history - limit to 20 messages to prevent unbounded growth
             if len(current_history) > 20:
                 current_history = current_history[-20:]
             conversation_history[conversation_id] = current_history
-            
+
             total_time = (datetime.now() - start_time).total_seconds()
             performance_info['total_time'] = total_time
-            
+
             response = {
                 "status": "success",
                 "answer": answer,
                 "conversation_id": conversation_id
             }
-            
+
             # Add performance info if requested
             if include_performance_info:
                 response["performance"] = performance_info
-            
+
             return jsonify(response)
-            
+
         except asyncio.TimeoutError:
             logger.warning(f"Request timed out for query: {query_text[:50]}...")
             return jsonify({
-                "status": "error", 
+                "status": "error",
                 "message": "The request took too long to process. Please try again with a simpler query."
             }), 408
-    
+
     except Exception as e:
         logger.error(f"Error in generate-answer endpoint: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -367,15 +367,15 @@ def list_collections():
     try:
         collections = chroma_client.list_collections()
         collection_names = [collection.name for collection in collections]
-        
+
         return jsonify({
             "status": "success",
             "collections": collection_names
         })
-    
+
     except Exception as e:
         logger.error(f"Error listing collections: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500 
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 
@@ -388,65 +388,65 @@ def hackrx_run():
         auth_header = request.headers.get('Authorization')
         if not auth_header or not auth_header.startswith('Bearer '):
             return jsonify({"error": "Missing or invalid Authorization header"}), 401
-        
+
         api_key = auth_header.split(' ')[1]
         # TODO: Validate API key against your authentication system
-        
+
         # Parse request data
         data = request.get_json()
         if not data:
             return jsonify({"error": "No JSON data provided"}), 400
-        
+
         documents_url = data.get('documents')
         questions = data.get('questions', [])
-        
+
         if not documents_url:
             return jsonify({"error": "Documents URL is required"}), 400
-        
+
         if not questions or not isinstance(questions, list):
             return jsonify({"error": "Questions must be a non-empty list"}), 400
-        
+
         # Generate cache key
         cache_key = generate_cache_key(documents_url, questions)
-        
+
         # Check cache first
         cached_result = get_cached_result(cache_key)
         if cached_result:
             logger.info(f"Returning cached result for request")
             return jsonify(cached_result)
-        
+
         # If not in cache, process the request
         logger.info(f"Processing document from URL: {documents_url}")
-        
+
         # Download the PDF from the URL
         response = requests.get(documents_url)
         if response.status_code != 200:
             return jsonify({"error": f"Failed to download document: {response.status_code}"}), 400
-        
+
         # Process the document and store in ChromaDB
         collection_name = "hackrx_documents"
-        
+
         # Create a file-like object for processing
         class FileWrapper:
             def __init__(self, content, filename):
                 self.content = content
                 self.filename = filename
                 self.read_called = False
-            
+
             def read(self):
                 if not self.read_called:
                     self.read_called = True
                     return self.content
                 return b''
-        
+
         file_obj = FileWrapper(response.content, "document.pdf")
-        
+
         # For now, return a simple response since Azure OpenAI credentials are not configured
         # In production, you would process the document and generate answers using RAG
-        
+
         # Extract text for basic processing
         text = extract_text_from_file(file_obj)
-        
+
         # Generate simple answers based on text content
         answers = []
         for question in questions:
@@ -477,17 +477,17 @@ def hackrx_run():
             except Exception as e:
                 logger.error(f"Error generating answer for question '{question}': {str(e)}")
                 answers.append(f"Error processing question: {str(e)}")
-        
+
         # Prepare result
         result = {
             "answers": answers
         }
-        
+
         # Cache the result
         cache_result(cache_key, result)
-        
+
         return jsonify(result)
-    
+
     except Exception as e:
         logger.error(f"Error in hackrx/run endpoint: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -500,13 +500,13 @@ def cache_status():
         current_time = time.time()
         active_entries = 0
         expired_entries = 0
-        
+
         for key, data in hackrx_cache.items():
             if current_time - data['timestamp'] < CACHE_TTL:
                 active_entries += 1
             else:
                 expired_entries += 1
-        
+
         return jsonify({
             "cache_status": {
                 "total_entries": len(hackrx_cache),
@@ -543,17 +543,17 @@ def hackrx_test():
     try:
         data = request.get_json()
         documents_url = data.get('documents')
-        
+
         # Download the PDF from the URL
         response = requests.get(documents_url)
         if response.status_code != 200:
             return jsonify({"error": f"Failed to download document: {response.status_code}"}), 400
-        
+
         # Try to extract text
         from io import BytesIO
         file_obj = BytesIO(response.content)
         file_obj.name = "document.pdf"
-        
+
         try:
             # Create a file-like object with filename attribute
             class FileWrapper:
@@ -561,13 +561,13 @@ def hackrx_test():
                     self.content = content
                     self.filename = filename
                     self.read_called = False
-                
+
                 def read(self):
                     if not self.read_called:
                         self.read_called = True
                         return self.content
                     return b''
-            
+
             file_wrapper = FileWrapper(response.content, "document.pdf")
             text = extract_text_from_file(file_wrapper)
             return jsonify({
@@ -579,7 +579,7 @@ def hackrx_test():
             return jsonify({
                 "error": f"Failed to extract text: {str(e)}"
             }), 500
-    
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -590,27 +590,27 @@ def hackrx_test_process():
     try:
         data = request.get_json()
         documents_url = data.get('documents')
-        
+
         # Download the PDF from the URL
         response = requests.get(documents_url)
         if response.status_code != 200:
             return jsonify({"error": f"Failed to download document: {response.status_code}"}), 400
-        
+
         # Create a file-like object for processing
         class FileWrapper:
             def __init__(self, content, filename):
                 self.content = content
                 self.filename = filename
                 self.read_called = False
-            
+
             def read(self):
                 if not self.read_called:
                     self.read_called = True
                     return self.content
                 return b''
-        
+
         file_obj = FileWrapper(response.content, "document.pdf")
-        
+
         # Process and store the document using sync wrapper
         collection_name = "hackrx_test"
         try:
@@ -623,6 +623,6 @@ def hackrx_test_process():
             return jsonify({
                 "error": f"Failed to process document: {str(e)}"
             }), 500
-    
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500 
+        return jsonify({"error": str(e)}), 500
