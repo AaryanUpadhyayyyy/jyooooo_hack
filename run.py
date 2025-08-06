@@ -8,8 +8,7 @@ Advanced Production-Ready RAG System
 """
 
 import os
-# Fix the import path to match your project structure
-from api.app import create_app  # This is the correct import
+from api.app import create_app
 
 app = create_app()
 
