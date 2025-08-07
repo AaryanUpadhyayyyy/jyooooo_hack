@@ -36,8 +36,8 @@ import openai
 from openai import AsyncAzureOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-# --- IMPORTANT: These lines are crucial for import resolution ---
-# Using absolute imports from the project's 'api' root, assuming PYTHONPATH is set.
+# --- Corrected Imports: Using absolute imports from the project's 'api' root ---
+# These imports assume that '/opt/render/project/src' is in your PYTHONPATH.
 from api.app.services.openai_services import (
     get_embeddings, process_and_store_document,
     query_vector_db, generate_answer, SmartCache
@@ -45,12 +45,12 @@ from api.app.services.openai_services import (
 from api.app.services.utils import (
     clean_text, extract_text_from_file, chunk_text
 )
-# --- End of important changes ---
+# --- End of Corrected Imports ---
 
 
-# Configure logging
+# Configure logging (set to DEBUG for verbose output during troubleshooting)
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
@@ -84,10 +84,11 @@ CACHE_TTL = 3600  # 1 hour in seconds
 
 # Helper function to run async functions in a thread
 def run_async(coro):
+    """Runs an async coroutine in a synchronous context."""
     return asyncio.run(coro)
 
 def generate_cache_key(documents_url: str, questions: List[str]) -> str:
-    """Generate a unique cache key based on document URL and questions."""
+    """Generates a unique cache key based on document URL and questions."""
     # Create a hash of the questions to make the key shorter
     questions_hash = hashlib.md5(json.dumps(questions, sort_keys=True).encode()).hexdigest()
     # Create a hash of the document URL
@@ -95,7 +96,10 @@ def generate_cache_key(documents_url: str, questions: List[str]) -> str:
     return f"hackrx:{url_hash}:{questions_hash}"
 
 def get_cached_result(cache_key: str) -> Optional[Dict]:
-    """Get cached result if it exists and is not expired."""
+    """
+    Retrieves a cached result if it exists and is not expired.
+    Corrected the 'key' variable to 'cache_key'.
+    """
     if cache_key in hackrx_cache:
         cached_data = hackrx_cache[cache_key]
         if time.time() - cached_data['timestamp'] < CACHE_TTL:
@@ -103,12 +107,12 @@ def get_cached_result(cache_key: str) -> Optional[Dict]:
             return cached_data['result']
         else:
             # Item expired, remove it
-            del hackrx_cache[cache_key]
+            del hackrx_cache[cache_key] # FIX: Changed 'key' to 'cache_key'
             logger.info(f"Cache expired for key: {cache_key}")
     return None
 
 def cache_result(cache_key: str, result: Dict):
-    """Cache the result with timestamp."""
+    """Caches the result with a timestamp."""
     hackrx_cache[cache_key] = {
         'result': result,
         'timestamp': time.time()
@@ -137,7 +141,7 @@ def health_check():
 # File upload endpoint
 @rag_routes.route('/api/upload', methods=['POST'])
 def upload_files():
-    """Handle multi-file upload to a specified collection"""
+    """Handles multi-file upload to a specified collection."""
     if 'files' not in request.files:
         return jsonify({"error": "No files provided"}), 400
 
@@ -162,7 +166,7 @@ def upload_files():
 # Delete all chunks of a specific file from a collection
 @rag_routes.route('/api/collections/<collection_name>/files/<file_id>', methods=['DELETE'])
 def delete_file(collection_name, file_id):
-    """Delete a file with protection against empty collection"""
+    """Deletes a file with protection against deleting the last file in a collection."""
     try:
         collection = chroma_client.get_collection(collection_name)
 
@@ -192,7 +196,7 @@ def delete_file(collection_name, file_id):
 # List all unique files in a collection with metadata
 @rag_routes.route('/api/collections/<collection_name>/files', methods=['GET'])
 def list_files(collection_name):
-    """Get all unique files in a collection with metadata"""
+    """Retrieves all unique files in a collection with their metadata."""
     try:
         collection = chroma_client.get_collection(collection_name)
 
@@ -224,7 +228,7 @@ def list_files(collection_name):
 # Delete entire collection
 @rag_routes.route('/api/collections/<collection_name>', methods=['DELETE'])
 def delete_collection(collection_name):
-    """Delete the entire collection"""
+    """Deletes an entire collection from the vector database."""
     try:
         chroma_client.delete_collection(collection_name)
         return jsonify({
@@ -236,7 +240,7 @@ def delete_collection(collection_name):
 
 @rag_routes.route('/api/query', methods=['POST'])
 def query():
-    """Query the vector database API endpoint."""
+    """Queries the vector database for similar documents."""
     try:
         data = request.get_json()
 
@@ -274,7 +278,7 @@ def query():
 
 @rag_routes.route('/api/generate-answer', methods=['POST'])
 def generate():
-    """Generate an answer based on context and history API endpoint with performance optimizations."""
+    """Generates an answer based on context and conversation history."""
     try:
         start_time = datetime.now()
         data = request.get_json()
@@ -365,7 +369,7 @@ def generate():
 
 @rag_routes.route('/api/collections', methods=['GET'])
 def list_collections():
-    """List all collections in the vector database."""
+    """Lists all collections in the vector database."""
     try:
         collections = chroma_client.list_collections()
         collection_names = [collection.name for collection in collections]
@@ -392,7 +396,26 @@ def new_feature_endpoint():
         "timestamp": datetime.now().isoformat(),
         "details": "Customize this endpoint for your hackathon needs."
     })
-# --- End of New Endpoint ---
+
+@rag_routes.route('/hackrx/another_endpoint', methods=['POST'])
+def another_hackrx_endpoint():
+    """
+    Another new endpoint for HackRX, demonstrating how to add more.
+    This one accepts a POST request with a 'message' in the JSON body.
+    """
+    try:
+        data = request.get_json()
+        message = data.get('message', 'No message provided.')
+        return jsonify({
+            "status": "success",
+            "received_message": message,
+            "response": "This is a custom response from another HackRX endpoint.",
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error in another_hackrx_endpoint: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+# --- End of New Endpoints ---
 
 
 # HackRX specific endpoint
@@ -511,7 +534,7 @@ def hackrx_run():
 # Cache management endpoint
 @rag_routes.route('/hackrx/cache/status', methods=['GET'])
 def cache_status():
-    """Get cache statistics and status."""
+    """Gets cache statistics and status."""
     try:
         current_time = time.time()
         active_entries = 0
@@ -539,7 +562,7 @@ def cache_status():
 # Cache clear endpoint
 @rag_routes.route('/hackrx/cache/clear', methods=['POST'])
 def clear_cache():
-    """Clear all cached results."""
+    """Clears all cached results."""
     try:
         cleared_count = len(hackrx_cache)
         hackrx_cache.clear()
