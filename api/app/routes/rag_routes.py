@@ -36,16 +36,15 @@ import openai
 from openai import AsyncAzureOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-# --- Corrected Imports: Using absolute imports from the project's 'api' root ---
-# These imports assume that '/opt/render/project/src' is in your PYTHONPATH.
-from api.app.services.openai_services import (
+# --- IMPORTANT: Use relative imports for modules within the 'api.app' package ---
+from ..services.openai_services import ( # Go up one level (from routes to app), then into services
     get_embeddings, process_and_store_document,
     query_vector_db, generate_answer, SmartCache
 )
-from api.app.services.utils import (
+from ..services.utils import ( # Go up one level (from routes to app), then into services
     clean_text, extract_text_from_file, chunk_text
 )
-# --- End of Corrected Imports ---
+# --- End of important changes ---
 
 
 # Configure logging (set to DEBUG for verbose output during troubleshooting)
@@ -107,7 +106,7 @@ def get_cached_result(cache_key: str) -> Optional[Dict]:
             return cached_data['result']
         else:
             # Item expired, remove it
-            del hackrx_cache[cache_key] # FIX: Changed 'key' to 'cache_key'
+            del hackrx_cache[cache_key]
             logger.info(f"Cache expired for key: {cache_key}")
     return None
 
@@ -365,7 +364,7 @@ def generate():
 
     except Exception as e:
         logger.error(f"Error in generate-answer endpoint: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 @rag_routes.route('/api/collections', methods=['GET'])
 def list_collections():
@@ -381,7 +380,7 @@ def list_collections():
 
     except Exception as e:
         logger.error(f"Error listing collections: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 # --- New Endpoint for Hackathon ---
 @rag_routes.route('/hackrx/new_feature', methods=['GET'])
