@@ -1,15 +1,17 @@
 """
 Advanced Production-Ready RAG System
-- Asynchronous Flask implementation 
+- Asynchronous Flask implementation
 - ChromaDB for vector storage
 - Azure OpenAI integration
 - Multi-user support with conversation history
 - Multiple file format support (.txt, .pdf, .docx)
 """
 
-import os
+# Ensure this import path is correct for your project structure
 from api.app import create_app
+import os
 
+# This line creates the Flask application instance
 app = create_app()
 
 if __name__ == '__main__':
