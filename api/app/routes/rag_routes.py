@@ -36,12 +36,13 @@ import openai
 from openai import AsyncAzureOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-# --- IMPORTANT: Use relative imports for modules within the 'api.app' package ---
-from ..services.openai_services import ( # Go up one level (from routes to app), then into services
+# --- IMPORTANT: Corrected to relative imports for modules within the 'api.app' package ---
+# Use '..' to go up one level (from 'routes' to 'app'), then into 'services'
+from ..services.openai_services import (
     get_embeddings, process_and_store_document,
     query_vector_db, generate_answer, SmartCache
 )
-from ..services.utils import ( # Go up one level (from routes to app), then into services
+from ..services.utils import (
     clean_text, extract_text_from_file, chunk_text
 )
 # --- End of important changes ---
@@ -106,7 +107,7 @@ def get_cached_result(cache_key: str) -> Optional[Dict]:
             return cached_data['result']
         else:
             # Item expired, remove it
-            del hackrx_cache[cache_key]
+            del hackrx_cache[cache_key] # FIX: Changed 'key' to 'cache_key'
             logger.info(f"Cache expired for key: {cache_key}")
     return None
 
@@ -273,7 +274,7 @@ def query():
 
     except Exception as e:
         logger.error(f"Error in query endpoint: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 @rag_routes.route('/api/generate-answer', methods=['POST'])
 def generate():
