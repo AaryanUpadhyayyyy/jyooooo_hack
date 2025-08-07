@@ -7,11 +7,11 @@ Advanced Production-Ready RAG System
 - Multiple file format support (.txt, .pdf, .docx)
 """
 
-# Ensure this import path is correct for your project structure
+# Correct import path to reference 'app' inside the 'api' directory
 from api.app import create_app
 import os
 
-# This line creates the Flask application instance
+# Create the Flask application instance
 app = create_app()
 
 if __name__ == '__main__':
