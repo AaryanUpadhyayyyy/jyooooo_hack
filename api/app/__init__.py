@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
-# Corrected the import to be relative
+# Corrected to a relative import
 from .routes.rag_routes import rag_routes
 
 def create_app():
