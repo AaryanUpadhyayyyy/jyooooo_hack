@@ -1,18 +1,22 @@
 services:
   - type: web
-    name: influai-rag
+    name: your-app-name # Replace with your project name on Render
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    # Added PYTHONPATH to ensure 'app' module is found
+    # CRITICAL: Ensure this startCommand is exactly as shown.
     startCommand: PYTHONPATH=$PYTHONPATH:/opt/render/project/src gunicorn run:app
     envVars:
-      # Updated Python version to 3.13.0 to match the runtime environment
       - key: PYTHON_VERSION
-        value: 3.13.0
+        value: 3.13.0 # Match this to the Python version Render is actually using
       - key: CHROMA_DB_PATH
         value: /opt/render/project/src/chroma_db
       - key: FLASK_ENV
         value: production
+      # Add your Azure OpenAI keys here
+      - key: AZURE_OPENAI_API_KEY
+        value: your_azure_openai_key_here # IMPORTANT: Replace with your actual key
+      - key: AZURE_OPENAI_ENDPOINT
+        value: your_azure_openai_endpoint_here # IMPORTANT: Replace with your actual endpoint
     healthCheckPath: /health
     autoDeploy: true
